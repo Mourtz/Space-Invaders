@@ -1,9 +1,9 @@
 # C compiler
 CC=gcc
 # C flags
-CFLAGS=-Wall -lncurses
+CFLAGS=-lncurses
 # ASM compiler
-CC2=asm
+CC2=nasm
 # ASM flags
 CFLAGS2=-f elf64
 
@@ -11,6 +11,5 @@ CFLAGS2=-f elf64
 exec=-o space_invaders
 
 build:
-	#nasm -f elf64 -o main.o main.asm
-	#gcc main.o main.c -o main
-	$(CC) main.c $(exec) $(CFLAGS)
+	$(CC2) $(CFLAGS2) -o main.o main.asm
+	$(CC) main.o main.c $(exec) $(CFLAGS)
