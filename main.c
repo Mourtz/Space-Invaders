@@ -15,22 +15,71 @@ static char termbuf[2048];
 
 int max_y, max_x;
 
+// draw call
 void draw(){
-  int x=0, y=0;
-  for(;x<max_x;x++){
-    for(;y<max_y;y++){
+  int x,y;
+  for(x=0;x<max_x;x++){
+    for(y=0;y<max_y;y++){
+      //chars[x][y]=1;
       if(chars[x][y] == 1){
         mvprintw(y, x, ".");
+        refresh();
+        // usleep(300);
       }
     }
   }
-  refresh();
+}
+
+/*
+ * @param Beginning of Vector X
+ * @param Beginning of Vector Y
+ * @param Ending of Vector X
+ * @param Ending of Vector Y
+ */
+void draw_line(int x0, int y0, int x1, int y1){
+  int xdir=(x1-x0)>=0?1:-1;
+  int ydir=(y1-y0)>=0?1:-1;
+  int dx=xdir>0?x1-x0:x0-x1;
+  int dy=ydir>0?y1-y0:y0-y1;
+  int dir=dx>dy?1:0;
+  int d=dir?dy+dy-dx:dx+dx-dy;
+  int y=dir?y0:y0+ydir;
+  int x=dir?x0+xdir:x0;
+  int loop=0;
+  int limit=dir?dx:dy;
+
+  chars[x][y]=1;
+  while(loop++<limit){
+    if(d>0){
+      if (dir == 1){
+        y+=ydir;
+      }
+      else{
+        x+=xdir;
+      }
+      chars[x][y]=1;
+      d+=dir?dy+dy-dx-dx:dx+dx-dy-dy;
+    }
+    else{
+      chars[x][y]=1;
+      d+=dir?dy+dy:dx+dx;
+    }
+    if (dir==1){
+      x+=xdir;
+    }
+    else{
+      y+=ydir;
+    }
+  }
+}
+
+void draw_spacecraft(){
+
 }
 
 int main(int argc, char *argv[])
 {
-  int ch, i;
-
+  int ch, x, y;
   /* Curses Initialisations */
   initscr();
   raw();
@@ -48,24 +97,36 @@ int main(int argc, char *argv[])
 
   int lines = tgetnum("li");
   int columns = tgetnum("co");
-  printw("Terminal stats:\nlines = %d; columns = %d.\n", lines, columns);
+  printw("Terminal stats: lines = %d, columns = %d.\n", lines, columns);
 
   // get max x and y
   getmaxyx(stdscr, max_y, max_x);
 
   // allocating memory space for buffer and chars array
-  chars = malloc(sizeof(int*)*max_x);
-  for(i=0;i<max_x;i++)
-    chars = malloc(sizeof(int)*2);
+  chars =  (int**)malloc(max_x*(sizeof(int*)));
+  for(x=0;x<max_x;x++){
+    chars[x] = malloc(sizeof(int)*max_y);
+  }
 
-  chars[5][1]= 1;
-  chars[5][2]= 1;
-  chars[5][3]= 1;
-  chars[5][5]= 1;
+  // fill chars array with 0's
+  for(x=0;x<max_x;x++){
+    for(y=0;y<max_y;y++){
+      chars[x][y]=0;
+    }
+  }
 
-  draw();
+  printw("Press anything to render...\n");
+  getch();
+
+  // border
+  draw_line(-1,0,max_x-1,0);
+  draw_line(-1,max_y-1,max_x-1,max_y-1);
+  draw_line(0,0,0,max_y-1);
+  draw_line(max_x-1,0,max_x-1,max_y-1);
+
 
   while(true){
+    draw();
     if((ch = getch()) != '#')
     {
       switch(ch)
@@ -102,6 +163,7 @@ int main(int argc, char *argv[])
     else{
       break;
     }
+    usleep(100);
   }
 
 

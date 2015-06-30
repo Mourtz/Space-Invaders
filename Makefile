@@ -13,3 +13,4 @@ exec=-o space_invaders
 build:
 	$(CC2) $(CFLAGS2) -o main.o main.asm
 	$(CC) main.o main.c $(exec) $(CFLAGS)
+	# $(CC) main.c $(exec) $(CFLAGS)
