@@ -1,3 +1,4 @@
 *.sh
-space_invaders
+*.out
 *.o
+space_invaders

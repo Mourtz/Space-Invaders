@@ -1,4 +1,16 @@
+/*
+ *
+ */
+
+// some unicode characters
+#define MIDMOON "\u2022"
+#define MIDDOT "\u00B7"
+#define RING_OPERATOR "\u2218"
+
+#define DELAY 30000
+
 #include <stdlib.h>
+#include <locale.h>
 #include <ncurses.h>
 #include <string.h>
 #include <signal.h>
@@ -6,12 +18,7 @@
 #include <error.h>
 #include <unistd.h>
 
-#define DELAY 30000
-
-int **chars;
-
-// term buffer
-static char termbuf[2048];
+int **pixel_matrix;
 
 int max_y, max_x;
 
@@ -20,14 +27,16 @@ void draw(){
   int x,y;
   for(x=0;x<max_x;x++){
     for(y=0;y<max_y;y++){
-      //chars[x][y]=1;
-      if(chars[x][y] == 1){
-        mvprintw(y, x, ".");
-        refresh();
+      //pixel_matrix[x][y]=1;
+      if(pixel_matrix[x][y] == 1){
+        mvprintw(y, x, MIDDOT);
+        // move(y, x);
+        // addch('-');
         // usleep(300);
       }
     }
   }
+  refresh();
 }
 
 /*
@@ -48,7 +57,7 @@ void draw_line(int x0, int y0, int x1, int y1){
   int loop=0;
   int limit=dir?dx:dy;
 
-  chars[x][y]=1;
+  pixel_matrix[x][y]=1;
   while(loop++<limit){
     if(d>0){
       if (dir == 1){
@@ -57,11 +66,11 @@ void draw_line(int x0, int y0, int x1, int y1){
       else{
         x+=xdir;
       }
-      chars[x][y]=1;
+      pixel_matrix[x][y]=1;
       d+=dir?dy+dy-dx-dx:dx+dx-dy-dy;
     }
     else{
-      chars[x][y]=1;
+      pixel_matrix[x][y]=1;
       d+=dir?dy+dy:dx+dx;
     }
     if (dir==1){
@@ -73,12 +82,35 @@ void draw_line(int x0, int y0, int x1, int y1){
   }
 }
 
+// @param rectangle position X (top left corner)
+// @param rectangle position Y (top left corner)
+// @param rectangle width
+// @param rectangle height
+void draw_rect(){
+  function canvas_rect {
+    ((
+      PosX=$1,
+      PosY=$2,
+      width=$3,
+      height=$4,
+      EndX=PosX+width
+    ))
+
+    # Draw horizontal lines
+    for ((i = 0 ; i < height ; i++)); do
+      let row=PosY+i
+      canvas_line PosX row EndX row
+    done
+  }
+}
+
 void draw_spacecraft(){
 
 }
 
 int main(int argc, char *argv[])
 {
+  setlocale(LC_ALL,"");
   int ch, x, y;
   /* Curses Initialisations */
   initscr();
@@ -88,30 +120,18 @@ int main(int argc, char *argv[])
   noecho();
 
   printw("Welcome - Press # to Exit\n");
-
-  char *termtype = getenv("TERM");
-
-  if (tgetent(termbuf, termtype) < 0) {
-      error(EXIT_FAILURE, 0, "Could not access the termcap data base.\n");
-  }
-
-  int lines = tgetnum("li");
-  int columns = tgetnum("co");
-  printw("Terminal stats: lines = %d, columns = %d.\n", lines, columns);
-
   // get max x and y
   getmaxyx(stdscr, max_y, max_x);
-
-  // allocating memory space for buffer and chars array
-  chars =  (int**)malloc(max_x*(sizeof(int*)));
+  // allocating memory space for buffer and pixel_matrix array
+  pixel_matrix =  (int**)malloc(max_x*(sizeof(int*)));
   for(x=0;x<max_x;x++){
-    chars[x] = malloc(sizeof(int)*max_y);
+    pixel_matrix[x] = malloc(sizeof(int)*max_y);
   }
 
-  // fill chars array with 0's
+  // fill pixel_matrix array with 0's
   for(x=0;x<max_x;x++){
     for(y=0;y<max_y;y++){
-      chars[x][y]=0;
+      pixel_matrix[x][y]=0;
     }
   }
 
@@ -163,7 +183,7 @@ int main(int argc, char *argv[])
     else{
       break;
     }
-    usleep(100);
+    // usleep(100);
   }
 
 
