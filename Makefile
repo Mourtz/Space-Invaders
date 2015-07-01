@@ -1,7 +1,7 @@
 # C compiler
 CC=gcc
 # C flags
-CFLAGS=-lncursesw -std=c11 -Wall
+CFLAGS=-lncursesw -lpthread -std=c11 -Wall
 # ASM compiler
 CC2=nasm
 # ASM flags

@@ -11,12 +11,14 @@
 
 #include <stdlib.h>
 #include <locale.h>
-#include <ncurses.h>
+#include <ncurses.h>  // ncurses library
 #include <string.h>
 #include <signal.h>
+#include <sys/time.h>
 #include <termcap.h>
 #include <error.h>
 #include <unistd.h>
+#include <pthread.h>  // POSIX theading
 
 int **pixel_matrix;
 
@@ -27,16 +29,31 @@ void draw(){
   int x,y;
   for(x=0;x<max_x;x++){
     for(y=0;y<max_y;y++){
-      //pixel_matrix[x][y]=1;
-      if(pixel_matrix[x][y] == 1){
-        mvprintw(y, x, MIDDOT);
-        // move(y, x);
-        // addch('-');
-        // usleep(300);
+      switch (pixel_matrix[x][y]) {
+        case 0:
+          mvprintw(y, x, " ");
+          break;
+        case 1:
+          mvprintw(y, x, MIDDOT);
+          break;
+        default:
+          break;
       }
+      // usleep(300);
     }
   }
-  refresh();
+  // move(y, x);
+  // addch('-');
+  // usleep(300);
+}
+
+void clear_screen(){
+  int x,y;
+  for(x=0;x<max_x;x++){
+    for(y=0;y<max_y;y++){
+      mvprintw(y, x, " ");
+    }
+  }
 }
 
 /*
@@ -45,7 +62,7 @@ void draw(){
  * @param Ending of Vector X
  * @param Ending of Vector Y
  */
-void draw_line(int x0, int y0, int x1, int y1){
+void draw_line(int x0, int y0, int x1, int y1,int value){
   int xdir=(x1-x0)>=0?1:-1;
   int ydir=(y1-y0)>=0?1:-1;
   int dx=xdir>0?x1-x0:x0-x1;
@@ -57,7 +74,7 @@ void draw_line(int x0, int y0, int x1, int y1){
   int loop=0;
   int limit=dir?dx:dy;
 
-  pixel_matrix[x][y]=1;
+  pixel_matrix[x][y]=value;
   while(loop++<limit){
     if(d>0){
       if (dir == 1){
@@ -66,11 +83,11 @@ void draw_line(int x0, int y0, int x1, int y1){
       else{
         x+=xdir;
       }
-      pixel_matrix[x][y]=1;
+      pixel_matrix[x][y]=value;
       d+=dir?dy+dy-dx-dx:dx+dx-dy-dy;
     }
     else{
-      pixel_matrix[x][y]=1;
+      pixel_matrix[x][y]=value;
       d+=dir?dy+dy:dx+dx;
     }
     if (dir==1){
@@ -86,42 +103,99 @@ void draw_line(int x0, int y0, int x1, int y1){
 // @param rectangle position Y (top left corner)
 // @param rectangle width
 // @param rectangle height
-void draw_rect(){
-  function canvas_rect {
-    ((
-      PosX=$1,
-      PosY=$2,
-      width=$3,
-      height=$4,
-      EndX=PosX+width
-    ))
+void draw_rect(int _x0, int _y0, int _width, int _height, int value){
+  int PosX=_x0;
+  int PosY=_y0;
+  int width=_width;
+  int height=_height;
+  int EndX=PosX+width;
 
-    # Draw horizontal lines
-    for ((i = 0 ; i < height ; i++)); do
-      let row=PosY+i
-      canvas_line PosX row EndX row
-    done
+  // Draw horizontal lines
+  for (int i = 0 ; i < height ; i++){
+    int row=PosY+i;
+    draw_line(PosX, row, EndX, row, value);
   }
 }
 
-void draw_spacecraft(){
-
+void draw_border(){
+  // border
+  draw_line(-1,0,max_x-1,0, 1);
+  draw_line(-1,max_y-1,max_x-1,max_y-1, 1);
+  draw_line(0,0,0,max_y-1, 1);
+  draw_line(max_x-1,0,max_x-1,max_y-1, 1);
 }
+
+//////////////////////////////////////////////////////////////////////////
+// SPACECRAFT
+//////////////////////////////////////////////////////////////////////////
+
+struct _spacecraft{
+  unsigned int posX, posY;
+  unsigned int width, height;
+  unsigned int health;  // [0,100]
+  bool hasfired;
+};
+struct _spacecraft spacecraft = {0, 0, 7, 2, 100, false};
+struct _spacecraft *spcr = &spacecraft;
+// draw spacecraft on screen
+void draw_spacecraft(){
+  spcr->posX = abs(max_x/2)-abs(spcr->width/2);
+  spcr->posY = abs(max_y)-2*spcr->height;
+
+  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 1);
+  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 1);
+}
+// erase spacecraft from canvas
+void spacecraft_clear(){
+  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 0);
+  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 0);
+}
+// move the spacecraft to the right
+void *spacecraft_moveR(){
+  spacecraft_clear();
+  spcr->posX ++;
+
+  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 1);
+  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 1);
+}
+// move the spacecraft to the left
+void *spacecraft_moveL(){
+  spacecraft_clear();
+  spcr->posX --;
+
+  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 1);
+  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 1);
+}
+void *spacecraft_fire(int value){
+  int pY=spcr->posY-1, pX=spcr->posX+abs(spcr->width/2)+1;
+  while(pY>1){
+    pixel_matrix[pX][--pY]=value;
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////
+// MAIN
+//////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[])
 {
+  pthread_t tid;
+
   setlocale(LC_ALL,"");
   int ch, x, y;
   /* Curses Initialisations */
   initscr();
-  raw();
-  // curs_set(FALSE);
-  keypad(stdscr, TRUE);
+  cbreak();
   noecho();
+  nodelay(stdscr, TRUE);
+
+  // raw();
+  keypad(stdscr, TRUE);
 
   printw("Welcome - Press # to Exit\n");
   // get max x and y
   getmaxyx(stdscr, max_y, max_x);
+
   // allocating memory space for buffer and pixel_matrix array
   pixel_matrix =  (int**)malloc(max_x*(sizeof(int*)));
   for(x=0;x<max_x;x++){
@@ -138,52 +212,53 @@ int main(int argc, char *argv[])
   printw("Press anything to render...\n");
   getch();
 
-  // border
-  draw_line(-1,0,max_x-1,0);
-  draw_line(-1,max_y-1,max_x-1,max_y-1);
-  draw_line(0,0,0,max_y-1);
-  draw_line(max_x-1,0,max_x-1,max_y-1);
-
+  draw_border();
+  draw_spacecraft();
 
   while(true){
     draw();
-    if((ch = getch()) != '#')
-    {
-      switch(ch)
-      {
-        case KEY_UP:
-          // printw("\nUp Arrow");
+    refresh();
 
-          break;
-        case KEY_DOWN:
-          // printw("\nDown Arrow");
-
-          break;
-        case KEY_LEFT:
-          // printw("\nLeft Arrow");
-
-          break;
-        case KEY_RIGHT:
-          // printw("\nRight Arrow");
-
-          break;
-        case KEY_NPAGE:
-          // printw("\nNext Page");
-
-          break;
-        default:
-        {
-          // printw("\nThe pressed key is ");
-          attron(A_BOLD);
-          // printw("%c", ch);
-          attroff(A_BOLD);
+    ch = getch();
+    if(ch != ERR){
+      if(ch == '#'){
+        break;
+      }
+      else if(ch == KEY_UP){
+        if(spcr->hasfired == false){
+          pthread_create(&tid, NULL, spacecraft_fire, 1);
+          spcr->hasfired = true;
         }
+      }
+      else if(ch == KEY_DOWN){
+
+      }
+      else if(ch == KEY_LEFT){
+        pthread_create(&tid, NULL, spacecraft_moveL, NULL);
+        if(spcr->hasfired == true){
+          pthread_create(&tid, NULL, spacecraft_fire, 0);
+          spcr->hasfired = false;
+        }
+      }
+      else if(ch == KEY_RIGHT){
+        pthread_create(&tid, NULL, spacecraft_moveR, NULL);
+        if(spcr->hasfired == true){
+          pthread_create(&tid, NULL, spacecraft_fire, 0);
+          spcr->hasfired = false;
+        }
+      }
+      else
+      {
+
       }
     }
     else{
-      break;
+      if(spcr->hasfired == true){
+        pthread_create(&tid, NULL, spacecraft_fire, 0);
+        spcr->hasfired = false;
+      }
     }
-    // usleep(100);
+    usleep(20000);
   }
 
 
@@ -192,6 +267,8 @@ printw("\n\nFarewell!\n");
 refresh();
 getch();
 endwin();
+
+pthread_exit(NULL);
 
 return 0;
 }
