@@ -3,6 +3,8 @@
  */
 
 // some unicode characters
+#define BLACK_SQUARE "\u25A0"
+#define BULLSEYE "\u25CE"
 #define MIDMOON "\u2022"
 #define MIDDOT "\u00B7"
 #define RING_OPERATOR "\u2218"
@@ -20,6 +22,8 @@
 #include <unistd.h>
 #include <pthread.h>  // POSIX theading
 
+WINDOW *canvas;
+
 int **pixel_matrix;
 
 int max_y, max_x;
@@ -27,14 +31,21 @@ int max_y, max_x;
 // draw call
 void draw(){
   int x,y;
+
   for(x=0;x<max_x;x++){
     for(y=0;y<max_y;y++){
       switch (pixel_matrix[x][y]) {
         case 0:
-          mvprintw(y, x, " ");
+          mvwprintw(canvas, y, x, " ");
+          // mvprintw(y, x, " ");
           break;
         case 1:
-          mvprintw(y, x, MIDDOT);
+          mvwprintw(canvas, y, x, MIDDOT);
+          // mvprintw(y, x, MIDDOT);
+          break;
+        case 2:
+          mvwprintw(canvas, y, x, BLACK_SQUARE);
+          // mvprintw(y, x, MIDDOT);
           break;
         default:
           break;
@@ -42,16 +53,14 @@ void draw(){
       // usleep(300);
     }
   }
-  // move(y, x);
-  // addch('-');
-  // usleep(300);
+  return;
 }
 
-void clear_screen(){
+void clear_canvas(){
   int x,y;
   for(x=0;x<max_x;x++){
     for(y=0;y<max_y;y++){
-      mvprintw(y, x, " ");
+      mvwprintw(canvas, y, x, " ");
     }
   }
 }
@@ -126,6 +135,31 @@ void draw_border(){
 }
 
 //////////////////////////////////////////////////////////////////////////
+// OBSTACLE
+//////////////////////////////////////////////////////////////////////////
+
+struct _obstacle{
+  unsigned int posX, posY;
+  unsigned int width, height;
+  unsigned int health;  // [0,100]
+};
+struct _obstacle obstacle1 = {0, 0, 20, 6, 100};
+struct _obstacle obstacle2 = {0, 0, 20, 6, 100};
+struct _obstacle obstacle3 = {0, 0, 20, 6, 100};
+struct _obstacle obstacle4 = {0, 0, 20, 6, 100};
+struct _obstacle *obst[] = {&obstacle1, &obstacle2, &obstacle3, &obstacle4};
+void draw_obstacles(){
+  for(int i=0; i<4; i++){
+    obst[i]->width = max_x/8;
+    obst[i]->height = abs(obst[i]->width/3);
+    obst[i]->posX = abs(obst[i]->width/2)+(i*abs(obst[i]->width*2.0));
+    obst[i]->posY = abs(max_y)-3*obst[i]->height;
+
+    draw_rect(obst[i]->posX ,obst[i]->posY, obst[i]->width, obst[i]->height, 2);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////
 // SPACECRAFT
 //////////////////////////////////////////////////////////////////////////
 
@@ -169,8 +203,13 @@ void *spacecraft_moveL(){
 void *spacecraft_fire(int value){
   int pY=spcr->posY-1, pX=spcr->posX+abs(spcr->width/2)+1;
   while(pY>1){
+    //
+    if(pixel_matrix[pX][pY-1] == 2){
+      return;
+    }
     pixel_matrix[pX][--pY]=value;
   }
+  return;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -182,19 +221,32 @@ int main(int argc, char *argv[])
   pthread_t tid;
 
   setlocale(LC_ALL,"");
+
   int ch, x, y;
+
   /* Curses Initialisations */
   initscr();
   cbreak();
   noecho();
-  nodelay(stdscr, TRUE);
-
-  // raw();
   keypad(stdscr, TRUE);
-
-  printw("Welcome - Press # to Exit\n");
+  start_color();
+  curs_set(FALSE);
+  nodelay(stdscr, TRUE);
+  clear();
+  // raw();
   // get max x and y
   getmaxyx(stdscr, max_y, max_x);
+  use_default_colors();
+
+  printw("Welcome - Press # to Exit\n");
+
+  init_color(COLOR_CYAN, 0,255,255);
+  init_pair(1, COLOR_GREEN, COLOR_BLACK);
+
+
+  canvas = newwin(max_y,max_x,0,0);
+  wbkgdset(canvas, COLOR_PAIR(1));
+  // box(canvas, 0, 0);
 
   // allocating memory space for buffer and pixel_matrix array
   pixel_matrix =  (int**)malloc(max_x*(sizeof(int*)));
@@ -214,10 +266,11 @@ int main(int argc, char *argv[])
 
   draw_border();
   draw_spacecraft();
+  draw_obstacles();
 
   while(true){
     draw();
-    refresh();
+    wrefresh(canvas);
 
     ch = getch();
     if(ch != ERR){
@@ -226,7 +279,7 @@ int main(int argc, char *argv[])
       }
       else if(ch == KEY_UP){
         if(spcr->hasfired == false){
-          pthread_create(&tid, NULL, spacecraft_fire, 1);
+          spacecraft_fire (1);
           spcr->hasfired = true;
         }
       }
@@ -236,14 +289,14 @@ int main(int argc, char *argv[])
       else if(ch == KEY_LEFT){
         pthread_create(&tid, NULL, spacecraft_moveL, NULL);
         if(spcr->hasfired == true){
-          pthread_create(&tid, NULL, spacecraft_fire, 0);
+          spacecraft_fire (0);
           spcr->hasfired = false;
         }
       }
       else if(ch == KEY_RIGHT){
         pthread_create(&tid, NULL, spacecraft_moveR, NULL);
         if(spcr->hasfired == true){
-          pthread_create(&tid, NULL, spacecraft_fire, 0);
+          spacecraft_fire (0);
           spcr->hasfired = false;
         }
       }
@@ -254,7 +307,7 @@ int main(int argc, char *argv[])
     }
     else{
       if(spcr->hasfired == true){
-        pthread_create(&tid, NULL, spacecraft_fire, 0);
+        spacecraft_fire (0);
         spcr->hasfired = false;
       }
     }
