@@ -1,5 +1,5 @@
 # C compiler
-CC=gcc
+CC=gcc-4.9
 # C flags
 CFLAGS=-lncursesw -lpthread -std=c11 -Wall
 #Emscripten Compiler
