@@ -4,10 +4,16 @@
 [![DUB](https://img.shields.io/dub/l/vibe-d.svg)]()
 
 ---
-<!-- 
-<h4> Features: </h4>
-- @ToDo
 
-<h4> How to run : </h4>
-- @ToDo
--->
+<h3> ToDo </h3>
+
+* somehow adjust terminal resolution to make game more visually stunning.
+* implement enemies.
+* fix segmentation faults when something "goes" out of bounds.
+* make a bare metal version of the game.
+* make it bootable.
+
+<h3> Dependencies </h3>
+```
+gcc nasm libncurses5-dev
+```
