@@ -9,7 +9,7 @@
 
 <h3> ToDo </h3>
 
-* somehow adjust terminal resolution to make game more visually stunning.
+* ~~somehow adjust terminal resolution to make game more visually stunning.~~
 * implement enemies.
 * fix segmentation faults when something "goes" out of bounds.
 * make a bare metal version of the game.
