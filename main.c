@@ -18,7 +18,7 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <termcap.h>
-#include <error.h>
+#include <errno.h>
 #include <unistd.h>
 #include <pthread.h>  // POSIX theading
 
@@ -40,11 +40,11 @@ void draw(){
           // mvprintw(y, x, " ");
           break;
         case 1:
-          mvwprintw(canvas, y, x, MIDDOT);
+          mvwprintw(canvas, y, x, "\u2801");
           // mvprintw(y, x, MIDDOT);
           break;
         case 2:
-          mvwprintw(canvas, y, x, BLACK_SQUARE);
+          mvwprintw(canvas, y, x, "\u28FF");
           // mvprintw(y, x, MIDDOT);
           break;
         default:
@@ -139,24 +139,56 @@ void draw_border(){
 //////////////////////////////////////////////////////////////////////////
 
 struct _obstacle{
-  unsigned int posX, posY;
-  unsigned int width, height;
-  unsigned int health;  // [0,100]
+  unsigned int posX, posY;    // the position of the obstacle
+  unsigned int width, height; // the actual scale of the obsacle
+  unsigned int *health;       // health of each "pixel" consisting the obstacle
 };
-struct _obstacle obstacle1 = {0, 0, 20, 6, 100};
-struct _obstacle obstacle2 = {0, 0, 20, 6, 100};
-struct _obstacle obstacle3 = {0, 0, 20, 6, 100};
-struct _obstacle obstacle4 = {0, 0, 20, 6, 100};
+struct _obstacle obstacle1 = {0, 0, 20, 6};
+struct _obstacle obstacle2 = {0, 0, 20, 6};
+struct _obstacle obstacle3 = {0, 0, 20, 6};
+struct _obstacle obstacle4 = {0, 0, 20, 6};
 struct _obstacle *obst[] = {&obstacle1, &obstacle2, &obstacle3, &obstacle4};
-void draw_obstacles(){
+void obstacle_draw(){
   for(int i=0; i<4; i++){
-    obst[i]->width = max_x/8;
+    obst[i]->width = abs(max_x/8);
     obst[i]->height = abs(obst[i]->width/3);
     obst[i]->posX = abs(obst[i]->width/2)+(i*abs(obst[i]->width*2.0));
     obst[i]->posY = abs(max_y)-3*obst[i]->height;
 
+    // memory space of healths array
+    obst[i]->health = malloc((obst[i]->width+1)*obst[i]->height*sizeof(int*));
+
+    for(int p=0; p<(obst[i]->width+1)*obst[i]->height; p++){
+      obst[i]->health[p] = 100;
+    }
+
     draw_rect(obst[i]->posX ,obst[i]->posY, obst[i]->width, obst[i]->height, 2);
   }
+}
+
+void obstacle_damage(int x, int y, int n){
+  for(int i=obst[n]->posY; i<=obst[n]->posY+obst[n]->height; i++){
+    for(int l=obst[n]->posX; l<=obst[n]->posX+obst[n]->width; l++){
+      if(x==l && y==i){
+        int ii = i - obst[n]->posY;
+        int ll = l - obst[n]->posX;
+
+        obst[n]->health[obst[n]->width*ii + ll] -= 50;
+        if(obst[n]->health[obst[n]->width*ii + ll] <= 0){
+          pixel_matrix[x][y]=0;
+        }
+        return;
+      }
+    }
+  }
+}
+
+int obstacle_inBounds(int x){
+  for(int i=0; i<4; i++){
+    if(x<=obst[i]->posX+obst[i]->width && x>obst[i]->posX )
+      return i;
+  }
+  return -1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -178,11 +210,13 @@ void draw_spacecraft(){
 
   draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 1);
   draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 1);
+  return;
 }
 // erase spacecraft from canvas
 void spacecraft_clear(){
   draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 0);
   draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 0);
+  return;
 }
 // move the spacecraft to the right
 void *spacecraft_moveR(){
@@ -191,6 +225,7 @@ void *spacecraft_moveR(){
 
   draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 1);
   draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 1);
+  return;
 }
 // move the spacecraft to the left
 void *spacecraft_moveL(){
@@ -199,12 +234,20 @@ void *spacecraft_moveL(){
 
   draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 1);
   draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 1);
+  return;
 }
 void *spacecraft_fire(int value){
   int pY=spcr->posY-1, pX=spcr->posX+abs(spcr->width/2)+1;
   while(pY>1){
     //
     if(pixel_matrix[pX][pY-1] == 2){
+      int _p = obstacle_inBounds(pX);
+      //decrease the health of obstacle by 5
+      if(_p != -1){
+        obstacle_damage(pX, pY-1, _p);
+        wbkgdset(canvas, COLOR_PAIR(2));
+      }
+
       return;
     }
     pixel_matrix[pX][--pY]=value;
@@ -242,7 +285,7 @@ int main(int argc, char *argv[])
 
   init_color(COLOR_CYAN, 0,255,255);
   init_pair(1, COLOR_GREEN, COLOR_BLACK);
-
+  init_pair(2, COLOR_RED, COLOR_BLACK);
 
   canvas = newwin(max_y,max_x,0,0);
   wbkgdset(canvas, COLOR_PAIR(1));
@@ -266,7 +309,7 @@ int main(int argc, char *argv[])
 
   draw_border();
   draw_spacecraft();
-  draw_obstacles();
+  obstacle_draw();
 
   while(true){
     draw();
