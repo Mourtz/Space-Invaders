@@ -1,3 +1,5 @@
+# GDB debugger
+GDB=gdb
 # C compiler
 CC=gcc-4.9
 # C flags
@@ -22,3 +24,13 @@ build:
 emsc:
 	$(CC2) $(CFLAGS2) -o main.o main.asm
 	$(EMCC) main.o main.c $(exec2) $(CFLAGS)
+
+debug:
+	$(CC2) $(CFLAGS2) -o main.o main.asm
+	$(CC) main.o main.c $(CFLAGS) -g
+	$(GDB) a.out
+
+clean:
+	find . -name "*.out" -type f -delete
+	find . -name "*.o" -type f -delete
+	if test -f "space_invaders"; then rm space_invaders;fi
