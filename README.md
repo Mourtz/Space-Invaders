@@ -13,8 +13,14 @@
 * ~~somehow adjust terminal resolution to make game more visually stunning.~~
 * ~~implement enemies.~~
 * ~~fix segmentation faults when something "goes" out of bounds.~~
-* finalize game mechanics.
+* ~~finalize game mechanics.~~
+* [ OPTIONAL ]
+  * create user interface.
+  * add sound effects/music.
 * make a bare metal version of the game.
+
+> currently game runs on 3 threads using POSIX threading library. Which means, before porting the game to bare metal a functional sceduler must be implemented. Otherwise, the game could also be downgraded in order to work on 1 thread. 
+
 * make it bootable.
 
 <h3> Dependencies </h3>
