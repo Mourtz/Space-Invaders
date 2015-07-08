@@ -15,15 +15,15 @@
 #include <pthread.h>  // POSIX theading
 
 // https://en.wikipedia.org/wiki/Braille_Patterns#Chart
-/*                               01       11       10       11       10       01
- *                               00       11       10       00       01       10
- *                               00       11       10       00       00       00
- *                               00       11       10       00       00       00
- *                               00       11       10       00       00       00
+/*                               01       11(GEN)  10       11       10       01       11(ACTOR)11(ENEMIES)
+ *                               00       11       10       00       01       10       11       11
+ *                               00       11       10       00       00       00       11       11
+ *                               00       11       10       00       00       00       11       11
+ *                               00       11       10       00       00       00       11       11
  */
-const char* charcode[7] ={" ","\u2801","\u28FF","\u2847","\u2809","\u2822","\u280A"};
+const char* charcode[9] ={" ","\u2801","\u28FF","\u2847","\u2809","\u2822","\u280A","\u28FF","\u28FF"};
 
-pthread_t thread1, thread2, thread3;
+pthread_t thread1, thread2;
 int ch, x, y;
 
 WINDOW *canvas;
@@ -185,7 +185,7 @@ int obstacle_inBounds(int x){
 struct _spacecraft{
   unsigned int posX, posY;    // spacecrafts position
   unsigned int width, height; //  the actual scale of spacecraft
-  unsigned int health;        // spacecrafts health (0-100)
+  int health;                 // spacecrafts health (0-100)
   bool hasfired;
 };
 
@@ -197,8 +197,8 @@ void draw_spacecraft(){
   spcr->posX = abs(max_x/2)-abs(spcr->width/2);
   spcr->posY = abs(max_y)-2*spcr->height;
 
-  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 2);
-  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 2);
+  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 7);
+  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 7);
   return;
 }
 // erase spacecraft from canvas
@@ -215,8 +215,8 @@ void spacecraft_moveR(){
   spacecraft_clear();
   spcr->posX ++;
 
-  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 2);
-  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 2);
+  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 7);
+  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 7);
   return;
 }
 // move the spacecraft to the left
@@ -227,24 +227,40 @@ void spacecraft_moveL(){
   spacecraft_clear();
   spcr->posX --;
 
-  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 2);
-  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 2);
+  draw_rect(spcr->posX ,spcr->posY, spcr->width, spcr->height, 7);
+  draw_line(spcr->posX + spcr->width/3, spcr->posY-1, spcr->posX + 2*spcr->width/3+1, spcr->posY-1, 7);
+  return;
+}
+void spacecraft_damage(int damage){
+  spcr->health -= damage;
+  if(spcr->health <= 0){
+    endwin();
+    printf("game over fella :( \n");
+    exit(0);
+  }
   return;
 }
 void *spacecraft_fire(int value){
   int pY=spcr->posY-2, pX=spcr->posX+abs(spcr->width/2)+1;
   while(pY>0){
-    //
     if(value != 0){
       if(pixel_matrix[pX][pY-1] == 2){
         int _p = obstacle_inBounds(pX);
-        //decrease the health of obstacle by 5
         if(_p != -1){
           obstacle_damage(pX, pY-1, _p, 10);
           wbkgdset(canvas, COLOR_PAIR(2));
         }
         projectileCache_X[projectileCache_length] = pX;
         projectileCache_Y[projectileCache_length++] = pY;
+        clean_projectiles();
+        return;
+      }
+      else if(pixel_matrix[pX][pY-1] == 8){
+        projectileCache_X[projectileCache_length] = pX;
+        projectileCache_Y[projectileCache_length++] = pY;
+
+        enemy_kill(enemy_inBounds_get(pX,pY-1));
+
         clean_projectiles();
         return;
       }
@@ -257,7 +273,6 @@ void *spacecraft_fire(int value){
   projectileCache_Y[projectileCache_length++] = pY;
   clean_projectiles();
   return;
-
 }
 int spacecraft_inBounds(int x){
   if(x<=spcr->posX+spcr->width && x>spcr->posX )
@@ -278,19 +293,19 @@ struct _enemy{
   char moveDir;
 };
 //    A type Enemies
-struct _enemy enemy1 = {0, 0, 0, 0, 100, 'a', 'r'};struct _enemy enemy2 = {0, 0, 0, 0, 100, 'a', 'r'};
-struct _enemy enemy3 = {0, 0, 0, 0, 100, 'a', 'r'};struct _enemy enemy4 = {0, 0, 0, 0, 100, 'a', 'r'};
-struct _enemy enemy5 = {0, 0, 0, 0, 100, 'a', 'r'};struct _enemy enemy6 = {0, 0, 0, 0, 100, 'a', 'r'};
+struct _enemy enemy1 = {0, 0, 0, 0, 100, 'A', 'r'};struct _enemy enemy2 = {0, 0, 0, 0, 100, 'A', 'r'};
+struct _enemy enemy3 = {0, 0, 0, 0, 100, 'A', 'r'};struct _enemy enemy4 = {0, 0, 0, 0, 100, 'A', 'r'};
+struct _enemy enemy5 = {0, 0, 0, 0, 100, 'A', 'r'};struct _enemy enemy6 = {0, 0, 0, 0, 100, 'A', 'r'};
 struct _enemy *enemA[] = {&enemy1, &enemy2, &enemy3, &enemy4, &enemy5, &enemy6};
 //    B type enemies
-struct _enemy enemy7 = {0, 0, 0, 0, 100, 'b', 'l'};struct _enemy enemy8 = {0, 0, 0, 0, 100, 'b', 'l'};
-struct _enemy enemy9 = {0, 0, 0, 0, 100, 'b', 'l'};struct _enemy enemy10 = {0, 0, 0, 0, 100, 'b', 'l'};
-struct _enemy enemy11 = {0, 0, 0, 0, 100, 'b', 'l'};struct _enemy enemy12 = {0, 0, 0, 0, 100, 'b', 'l'};
+struct _enemy enemy7 = {0, 0, 0, 0, 100, 'B', 'l'};struct _enemy enemy8 = {0, 0, 0, 0, 100, 'B', 'l'};
+struct _enemy enemy9 = {0, 0, 0, 0, 100, 'B', 'l'};struct _enemy enemy10 = {0, 0, 0, 0, 100, 'B', 'l'};
+struct _enemy enemy11 = {0, 0, 0, 0, 100, 'B', 'l'};struct _enemy enemy12 = {0, 0, 0, 0, 100, 'B', 'l'};
 struct _enemy *enemB[] = {&enemy7, &enemy8, &enemy9, &enemy10, &enemy11, &enemy12};
 //    C type enemies
-struct _enemy enemy13 = {0, 0, 0, 0, 100, 'c', 'r'};struct _enemy enemy14 = {0, 0, 0, 0, 100, 'c', 'r'};
-struct _enemy enemy15 = {0, 0, 0, 0, 100, 'c', 'r'};struct _enemy enemy16 = {0, 0, 0, 0, 100, 'c', 'r'};
-struct _enemy enemy17 = {0, 0, 0, 0, 100, 'c', 'r'};struct _enemy enemy18 = {0, 0, 0, 0, 100, 'c', 'r'};
+struct _enemy enemy13 = {0, 0, 0, 0, 100, 'C', 'r'};struct _enemy enemy14 = {0, 0, 0, 0, 100, 'C', 'r'};
+struct _enemy enemy15 = {0, 0, 0, 0, 100, 'C', 'r'};struct _enemy enemy16 = {0, 0, 0, 0, 100, 'C', 'r'};
+struct _enemy enemy17 = {0, 0, 0, 0, 100, 'C', 'r'};struct _enemy enemy18 = {0, 0, 0, 0, 100, 'C', 'r'};
 struct _enemy *enemC[] = {&enemy13, &enemy14, &enemy15, &enemy16, &enemy17, &enemy18};
 void enemy_draw(){
   for(int i=0,z=0; i<18; i++){
@@ -300,7 +315,7 @@ void enemy_draw(){
       enemA[i]->posX = abs(enemA[i]->width/2)+(i*abs(enemA[i]->width*2.0));
       enemA[i]->posY = abs(enemA[i]->height/2);
 
-      draw_rect(enemA[i]->posX ,enemA[i]->posY, enemA[i]->width, enemA[i]->height, 2);
+      draw_rect(enemA[i]->posX ,enemA[i]->posY, enemA[i]->width, enemA[i]->height, 8);
     }
     else if(i<12){
       z=i;
@@ -310,7 +325,7 @@ void enemy_draw(){
       enemB[i]->height = abs(enemB[i]->width/2);
       enemB[i]->posX = abs(enemB[i]->width/2)+(i*abs(enemB[i]->width*2.0));
       enemB[i]->posY = abs(enemB[i]->height/2)+abs(enemB[i]->height*1.5);;
-      draw_rect(enemB[i]->posX ,enemB[i]->posY, enemB[i]->width, enemB[i]->height, 2);
+      draw_rect(enemB[i]->posX ,enemB[i]->posY, enemB[i]->width, enemB[i]->height, 8);
 
       i=z;
     }
@@ -322,7 +337,7 @@ void enemy_draw(){
       enemC[i]->height = abs(enemC[i]->width/2);
       enemC[i]->posX = abs(enemC[i]->width/2)+(i*abs(enemC[i]->width*2.0));
       enemC[i]->posY = abs(enemC[i]->height/2)+abs(enemC[i]->height*3.0);;
-      draw_rect(enemC[i]->posX ,enemC[i]->posY, enemC[i]->width, enemC[i]->height, 2);
+      draw_rect(enemC[i]->posX ,enemC[i]->posY, enemC[i]->width, enemC[i]->height, 8);
 
       i=z;
     }
@@ -348,97 +363,182 @@ void enemy_clear(){
 struct enemy_fire_args{
   int _value,_pX, _pY;
 };
-void enemy_fire(int value, int pX, int pY){
-  int _pX = pX;
-  int _pY = pY;
+void enemy_kill(int enemy){
+    if(enemy<6){
+      enemA[enemy]->health = 0;
+      draw_rect(enemA[enemy]->posX ,enemA[enemy]->posY, enemA[enemy]->width, enemA[enemy]->height, 0);
+      return;
+    }
+    else if(enemy<12){
+      enemy-=6;
+
+      enemB[enemy]->health = 0;
+      draw_rect(enemB[enemy]->posX ,enemB[enemy]->posY, enemB[enemy]->width, enemB[enemy]->height, 0);
+      return;
+    }
+    else{
+      enemy-=12;
+
+      enemC[enemy]->health = 0;
+      draw_rect(enemC[enemy]->posX ,enemC[enemy]->posY, enemC[enemy]->width, enemC[enemy]->height, 0);
+      return;
+    }
+  return;
+}
+bool enemy_inBounds(int x, char type){
+  for(int i=0; i<6; i++){
+    if(type == 'A'){
+      if(x <= enemB[i]->posX + enemB[i]->width && x > enemB[i]->posX) return true;
+      if(x <= enemC[i]->posX + enemC[i]->width && x > enemC[i]->posX) return true;
+    }
+    else if(type == 'B'){
+      if(x <= enemC[i]->posX + enemC[i]->width && x > enemC[i]->posX) return true;
+    }
+  }
+  return false;
+}
+int enemy_inBounds_get(int x, int y){
+  for(int i=0, z=0; i<18 ;i++){
+    if(i<6){
+      if(x <= enemA[i]->posX + enemA[i]->width && x > enemA[i]->posX && y == enemA[i]->posY + enemA[i]->height - 1) return i;
+    }
+    else if(i<12){
+      z=i;i-=6;
+      if(x <= enemB[i]->posX + enemB[i]->width && x > enemB[i]->posX && y == enemB[i]->posY + enemB[i]->height - 1) return z;
+      i=z;
+    }
+    else{
+      z=i;i-=12;
+      if(x <= enemC[i]->posX + enemC[i]->width && x > enemC[i]->posX && y == enemC[i]->posY + enemC[i]->height - 1) return z;
+      i=z;
+    }
+  }
+  return -1;
+}
+int enemy_fire_value, enemy_fire_pX, enemy_fire_pY;
+void *enemy_fire( ){
   int cntr =0;
-  while(pY<max_y-1) {
+  while(enemy_fire_pY<max_y-1) {
     cntr++;
-    if(value != 0){
-      if(pixel_matrix[pX][pY+1] == 2){
-        int _p = obstacle_inBounds(pX);
+    if(enemy_fire_value != 0){
+      if(pixel_matrix[enemy_fire_pX][enemy_fire_pY+1] == 2){
+        int _p = obstacle_inBounds(enemy_fire_pX);
         if(_p != -1){
-          obstacle_damage(pX, pY+1, _p, 50);
+          obstacle_damage(enemy_fire_pX, enemy_fire_pY+1, _p, 50);
         }
-        projectileCache_X[projectileCache_length] = pX;
-        projectileCache_Y[projectileCache_length++] = pY;
+        projectileCache_X[projectileCache_length] = enemy_fire_pX;
+        projectileCache_Y[projectileCache_length++] = enemy_fire_pY;
+
         clean_projectiles();
         return;
       }
-      pixel_matrix[pX][pY]=0;
-      pixel_matrix[pX][++pY]=value;
+      else if(pixel_matrix[enemy_fire_pX][enemy_fire_pY+1] == 7){
+        spacecraft_damage(50);
+
+        projectileCache_X[projectileCache_length] = enemy_fire_pX;
+        projectileCache_Y[projectileCache_length++] = enemy_fire_pY;
+
+        clean_projectiles();
+        return;
+      }
+      pixel_matrix[enemy_fire_pX][enemy_fire_pY]=0;
+      pixel_matrix[enemy_fire_pX][++enemy_fire_pY]=enemy_fire_value;
     }
-    usleep(DELAY);
+    usleep(60000);
   }
-  projectileCache_X[projectileCache_length] = pX;
-  projectileCache_Y[projectileCache_length++] = pY;
+  projectileCache_X[projectileCache_length] = enemy_fire_pX;
+  projectileCache_Y[projectileCache_length++] = enemy_fire_pY;
   clean_projectiles();
   return;
 }
 void *enemy_update() {
+  bool stored_shot;
   while(true){
+    stored_shot=false;
     enemy_clear();
-    for(int i=0,z=0; i<18; i++){
-      if(i<6){
-        if(enemA[i]->moveDir == 'r'){
-          if((enemA[5]->posX + enemA[5]->width) == (max_x-2)){
-            enemA[i]->moveDir = 'l';
-          }else{
-            enemA[i]->posX ++;
+    for(int i=0; i<6; i++){
+        // A type enemies
+        if(enemA[i]->health > 0){
+          if(enemA[i]->moveDir == 'r'){
+            if((enemA[5]->posX + enemA[5]->width) == (max_x-2)){
+              enemA[i]->moveDir = 'l';
+            }else{
+              enemA[i]->posX ++;
+            }
           }
-        }
-        else{
-          if(enemA[0]->posX == 0){
-            enemA[i]->moveDir = 'r';
-          }else{
-            enemA[i]->posX --;
+          else{
+            if(enemA[0]->posX == 0){
+              enemA[i]->moveDir = 'r';
+            }else{
+              enemA[i]->posX --;
+            }
           }
-        }
-
-        draw_rect(enemA[i]->posX ,enemA[i]->posY, enemA[i]->width, enemA[i]->height, 2);
-      }
-      else if(i<12){
-        z=i;i-=6;
-        if(enemB[i]->moveDir == 'r'){
-          if((enemB[5]->posX + enemB[5]->width) == (max_x-3)){
-            enemB[i]->moveDir = 'l';
-          }else{
-            enemB[i]->posX ++;
-          }
-        }
-        else{
-          if(enemB[0]->posX == 0){
-            enemB[i]->moveDir = 'r';
-          }else{
-            enemB[i]->posX --;
-          }
-        }
-        draw_rect(enemB[i]->posX ,enemB[i]->posY, enemB[i]->width, enemB[i]->height, 2);
-        i=z;
-      }
-      else{
-        z=i;i-=12;
-        if(enemC[i]->moveDir == 'r'){
-          if((enemC[5]->posX + enemC[5]->width) == (max_x-2)){
-            enemC[i]->moveDir = 'l';
-          }else{
-            enemC[i]->posX ++;
-          }
-        }
-        else{
-          if(enemC[0]->posX == 0){
-            enemC[i]->moveDir = 'r';
-          }else{
-            enemC[i]->posX --;
+          draw_rect(enemA[i]->posX ,enemA[i]->posY, enemA[i]->width, enemA[i]->height, 8);
+          if(stored_shot == false && spacecraft_inBounds(enemA[i]->posX + abs(enemA[i]->width/2) + 1) == 1 && enemy_inBounds(enemA[i]->posX + abs(enemA[i]->width/2) + 1, enemA[i]->type) == false){
+            enemy_fire_value = 2;
+            enemy_fire_pX = enemA[i]->posX + abs(enemA[i]->width/2) + 1;
+            enemy_fire_pY = enemA[i]->posY + enemA[i]->height + 1;
+            stored_shot = true;
           }
         }
 
-        draw_rect(enemC[i]->posX ,enemC[i]->posY, enemC[i]->width, enemC[i]->height, 2);
-        if(spacecraft_inBounds((enemC[i]->posX) + abs(enemC[i]->width/2) + 1) == 1 && rand() % 2 == 1)
-          enemy_fire(2, enemC[i]->posX + abs(enemC[i]->width/2) + 1,enemC[i]->posY + enemC[i]->height + 1);
-        i=z;
-      }
+        // B type enemies
+
+        if(enemB[i]->health > 0){
+          if(enemB[i]->moveDir == 'r'){
+            if((enemB[5]->posX + enemB[5]->width) == (max_x-3)){
+              enemB[i]->moveDir = 'l';
+            }else{
+              enemB[i]->posX ++;
+            }
+          }
+          else{
+            if(enemB[0]->posX == 0){
+              enemB[i]->moveDir = 'r';
+            }else{
+              enemB[i]->posX --;
+            }
+          }
+          draw_rect(enemB[i]->posX ,enemB[i]->posY, enemB[i]->width, enemB[i]->height, 8);
+          if(stored_shot == false && spacecraft_inBounds(enemB[i]->posX + abs(enemB[i]->width/2) + 1) == 1 && enemy_inBounds(enemB[i]->posX + abs(enemB[i]->width/2) + 1, enemB[i]->type) == false){
+            enemy_fire_value = 2;
+            enemy_fire_pX = enemB[i]->posX + abs(enemB[i]->width/2) + 1;
+            enemy_fire_pY = enemB[i]->posY + enemB[i]->height + 1;
+            stored_shot = true;
+          }
+        }
+
+
+        // C type enemies
+
+        if(enemC[i]->health > 0){
+          if(enemC[i]->moveDir == 'r'){
+            if((enemC[5]->posX + enemC[5]->width) == (max_x-2)){
+              enemC[i]->moveDir = 'l';
+            }else{
+              enemC[i]->posX ++;
+            }
+          }
+          else{
+            if(enemC[0]->posX == 0){
+              enemC[i]->moveDir = 'r';
+            }else{
+              enemC[i]->posX --;
+            }
+          }
+          draw_rect(enemC[i]->posX ,enemC[i]->posY, enemC[i]->width, enemC[i]->height, 8);
+          if(stored_shot == false && spacecraft_inBounds(enemC[i]->posX + abs(enemC[i]->width/2) + 1) == 1){
+            enemy_fire_value = 2;
+            enemy_fire_pX = enemC[i]->posX + abs(enemC[i]->width/2) + 1;
+            enemy_fire_pY = enemC[i]->posY + enemC[i]->height + 1;
+            stored_shot = true;
+          }
+        }
+
     }
+    if(stored_shot)
+      enemy_fire();
+
     usleep(DELAY);
   }
   return;
@@ -470,18 +570,14 @@ void loop(){
       }
       // LEFT ARROW
       else if(ch == KEY_LEFT){
-        if(spcr->hasfired == true){
-          // spacecraft_fire (0);
+        if(spcr->hasfired == true)
           spcr->hasfired = false;
-        }
         spacecraft_moveL();
       }
       // RIGHT ARROW
       else if(ch == KEY_RIGHT){
-        if(spcr->hasfired == true){
-          // spacecraft_fire (0);
+        if(spcr->hasfired == true)
           spcr->hasfired = false;
-        }
         spacecraft_moveR();
       }
       // SPACEBAR
@@ -493,10 +589,8 @@ void loop(){
       }
     }
     else{
-      if(spcr->hasfired == true){
+      if(spcr->hasfired == true)
         spcr->hasfired = false;
-        // spacecraft_fire (0);
-      }
     }
     usleep(15000);
   }
