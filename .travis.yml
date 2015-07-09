@@ -4,6 +4,19 @@ compiler:
     - nasm
     - gcc
 
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "ixgmmqGRq21J6K5v8zD2LkDPl6NNqUCAZPYxuke4YfLvlk7BhY8C89Gu13YPjdsygsAxnKc6EaMibFYQFiW6Pc3hCazVpacXg3tXAc8ca9Dv3y3ues6tVtwarenbAFKnboKhUsZBudLS1eqwh0d2KCTphVkgmi7NSMMN+rMB3Y7ueLVzaQDh4KLSCJ+oxg0ChUTelR9pkV7EKT5kbnSnObLABvFv0Axdp0YUQVE6J7kx+IHBTEmOua80G+5ta0IRd0R9aCGEn4OgJLVfEdVKhesLxH1lajYJJIEZ6medAki9vgDGQ3S9kW3ziJoeZA4LwUH/ojfOnLH974reULUxgWQYbZS8/a9E7WLHmLmvx3w6TcXjTuDqJ4jCP50eY9JhX7y71kfRa8ycLQLLSaMr555Fjmin9hoZSVPVoEuollqBGg90Wnyov04SVAyvYXuAVk6LrHsykmIjcrk5bftmOC36qq+G5LUscwJTJoRtz488DcUwxlNjTEgdhXFLeiV2X8Q5fmUA7nuW6k4W3eWm9NerXJJ8iIGzgvMTZdLq757WErTinrgMcQ5kgS6jnLm1nBTjOI/vfclDV+rS5lJsZOhcSD9nOQ6tP21GZVvuefIbwjlnduRobnFNbM0vUT1gyXx0bbQKfuEkNO4WvzlUQnKi1D9Hs9ZFaVVUsGA5Y5M="
+
+addons:
+  coverity_scan:
+    project:
+      name: "Mourtz/Space-Invaders"
+    notification_email: alex.mourtziapis@gmail.com
+    branch_pattern: master
+
 before_script:
     - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     - sudo apt-get update -qq
